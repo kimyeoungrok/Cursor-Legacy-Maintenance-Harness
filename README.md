@@ -158,7 +158,7 @@ flowchart TD
     O --> P{검토 결과}
 
     P -- CHANGES_REQUIRED --> J
-    P -- REVIEW_PASS --> Q[/report]
+    P -- REVIEW_PASS ---> Q[report]
     Q --> R[최종 변경 보고서 생성]
 ```
 
@@ -273,7 +273,3 @@ Reviewer가 수정 필요 사항을 발견하면 Main Agent로 돌아가 재수�
 - Agent별 `model` 값은 Cursor에서 실제 사용 가능한 모델 ID에 따라 조정이 필요할 수 있습니다.
 - External Researcher의 MCP 사용 여부는 현재 Cursor 환경에 연결된 MCP에 따라 달라집니다.
 - 테스트 실행 가능 여부는 프로젝트의 빌드 환경과 외부 의존성 상태에 영향을 받습니다.
-
-## License
-
-필요한 라이선스를 선택해 저장소에 `LICENSE` 파일로 추가하세요.
