@@ -1,0 +1,73 @@
+---
+description: 레거시 유지보수 Harness 공통 규칙 (분석 → 확인 → 수정 → 테스트 → 검토 → 보고서)
+alwaysApply: true
+---
+
+# 유지보수 Harness 공통 규칙
+
+`src/` 수정 요청에만 적용한다. 질문·설명 요청, `.cursor/`·`harness/` 작업에는 적용하지 않는다.
+목표는 빠른 수정이 아니라, 개발자가 변경을 판단할 근거를 먼저 제공하는 것이다.
+
+## 작업 위치
+
+- 분석과 수정 대상은 `src/` 뿐이다. (`src/main`, `src/test`, `src/main/resources` 포함)
+- `build.gradle`, `Dockerfile`, `.github/` 등 `src/` 밖은 계획에 없어도 고치기 전에 멈추고 확인을 받는다.
+- `.cursor/`, `harness/`는 하네스 파일이다. 영향도 근거로 삼지 않는다.
+- Git 조회는 `src/`로 범위를 제한한다. 추적·staged·untracked를 모두 본다. 상태 변경은 하지 않는다.
+  - `git status --short -- src/`
+  - `git diff HEAD -- src/`
+  - `git ls-files --others --exclude-standard -- src/`
+- untracked 파일 내용은 `git add` 없이 Read로 확인한다.
+- `application.yml`의 `${환경변수}` 키 이름은 읽어도 된다. 실제 값은 읽지 않는다.
+
+## 작업 순서
+
+1. **영향도 분석**
+   `/analyze` 없이 "고쳐줘"라고 해도 수정 전에 분석한다.
+   채팅에 요약을 보여주고, `record.md` 분석 구역에 전문을 쓴다.
+   외부 라이브러리·프레임워크·SDK·API·dependency·Docker·인프라·공식 설정에 의존하면 `.cursor/agents/external-researcher.md`를 호출한다. 내부 로직만이면 호출하지 않는다.
+2. **멈추고 확인 대기**
+   개발자가 명시적으로 수정 지시를 하기 전에는 `src/`를 고치지 않는다.
+   수정 승인으로 본다: `진행`, `수정 진행`, `수정해`, `수정해줘`, `적용해줘`, `OK`.
+   `확인해`처럼 조회·분석으로 읽히는 표현은 승인이 아니다. 애매하면 한 번 더 묻는다.
+3. **수정 (Main Agent)**
+   확인된 변경 계획 범위 안에서만 수정한다. 계획에 없던 파일을 고쳐야 하면 먼저 확인하고 받는다.
+   외부 사양 검증이 `PARTIALLY_VERIFIED` / `NOT_VERIFIED`인 항목을 확정된 설정처럼 쓰지 않는다.
+   구현이 끝나면 Tester와 Reviewer를 **동시에 실행하지 않는다.**
+4. **Tester Agent**
+   `.cursor/agents/tester.md`에 위임한다. `src/test/**`만 추가·수정할 수 있다. `src/main/**`은 고치지 않는다.
+   결과는 `harness/records/<작업>/test-result.md`다.
+5. **Reviewer Agent**
+   Tester가 `test-result.md`를 쓴 **뒤에만** `.cursor/agents/reviewer.md`에 위임한다.
+   `src/main/**`, `src/test/**`를 고치지 않는다. 결과는 `harness/records/<작업>/review.md`다.
+   `CHANGES_REQUIRED`이면 Main Agent가 다시 수정한 뒤 Tester → Reviewer를 순차로 반복한다.
+6. **보고서**
+   `/report`로 `record.md`, Git 조회 결과, `test-result.md`, `review.md`를 대조해 보고서를 만든다.
+
+상세 절차는 `.cursor/commands/analyze.md`, `.cursor/commands/report.md`, `.cursor/agents/external-researcher.md`, `.cursor/agents/tester.md`, `.cursor/agents/reviewer.md`와 `harness/templates/record.md`를 따른다.
+
+## 작업 기록
+
+- 작업 1건마다 `harness/records/<YYYY-MM-DD-짧은설명>/record.md`를 만든다.
+- 양식은 `harness/templates/record.md`를 따른다.
+- 각 단계는 자기 구역만 채운다. 앞 단계에서 쓴 내용을 덮어쓰지 않는다.
+- 개발자의 확인 결정(진행 여부, 변경 계획, 주의 사항)도 기록에 남긴다.
+
+## 근거 표기
+
+- `[확인] 경로` — 해당 파일을 Read로 연 뒤에만 쓴다. Grep·파일명·import만으로는 `[확인]`이 아니다.
+- `[추정]` — 파일을 열지 않고 이름이나 정황으로 판단함.
+
+열어 보지 않은 파일, 클래스, 메서드는 `[확인]`으로 쓰지 않는다.
+확신이 없으면 `[추정]`으로 쓴다.
+
+## 하지 않는 것
+
+- 확인 없이 `src/main/**`을 수정하지 않는다. (승인 후 Tester의 `src/test/**` 추가는 예외)
+- 시크릿 파일은 Read/Grep/Shell로 열지 않는다. `.env`, `.env.*`, `application-local.yml`, `*.pem`, `*.key`, `credentials.json` 포함.
+- 환경변수 실제 값을 조회하지 않는다. `printenv`, `Get-Content .env`, `echo $DB_PASSWORD` 같은 명령을 쓰지 않는다.
+- `commit`, `push`, `reset`, `checkout`, `stash`, `git add` 등 Git 상태를 바꾸는 명령을 실행하지 않는다.
+- DB에 INSERT/UPDATE/DELETE/DDL을 실행하지 않는다. 앱을 통해 데이터를 쓰지도 않는다.
+- 테스트 결과를 만들어 내지 않는다. 실행하지 않았으면 `NOT_TESTED`로 둔다. 실패·미실행을 `PASS`로 바꾸지 않는다.
+- Git 조회(`status --short`, `diff HEAD`, `ls-files --others`)에 없는 파일을 "실제 변경"에 적지 않는다.
+- `record.md`, `test-result.md`, `review.md`, Git 조회에 없는 내용을 보고서에 추가하지 않는다.
