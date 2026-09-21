@@ -65,6 +65,8 @@ Main Agent는 다음과 같이 수정 의사가 명확한 표현을 받은 경�
 4. 공식 Registry
 5. 기타 신뢰 가능한 기술 자료
 
+MCP 결과가 공식 자료와 충돌하는 경우 공식 자료를 우선합니다.
+
 MCP가 없거나 필요한 정보를 제공하지 못하면 공식 자료로 fallback하며, 확인하지 못한 값은 추측하지 않습니다.
 
 ### 4. Tester Agent
@@ -135,31 +137,37 @@ Reviewer가 `CHANGES_REQUIRED`를 반환하면 Main Agent가 다시 수정하고
 
 ```mermaid
 flowchart TD
-    A[사용자 수정 요청] --> B[영향도 분석 /analyze]
-    B --> C{외부 사양에 의존하는가?}
+    A["사용자 수정 요청"] --> B["/analyze 영향도 분석"]
+    B --> C{"외부 사양에 의존하는가?"}
 
-    C -- 예 --> D[External Researcher]
-    D --> E[공식 문서 / MCP / Repository / Registry 검증]
-    E --> F[record.md에 외부 사양 검증 결과 기록]
+    C -->|아니오| G["record.md 작성"]
+    C -->|예| D["External Researcher"]
 
-    C -- 아니오 --> G[record.md에 영향도 분석 기록]
-    F --> G
+    D --> E["문서 MCP 우선 조회"]
+    E --> F{"필요한 정보를 확보했는가?"}
 
-    G --> H{개발자 승인?}
-    H -- 아니오 --> I[분석 수정 또는 종료]
-    H -- 예 --> J[Main Agent 코드 수정]
+    F -->|예| G
+    F -->|아니오| H["공식 Documentation / Repository / Release Notes / Registry 확인"]
+    H --> G
 
-    J --> K[Tester Agent]
-    K --> L[기존 테스트 실행 / 필요 시 테스트 추가]
-    L --> M[test-result.md 작성]
+    G --> I{"개발자 승인 여부"}
 
-    M --> N[Reviewer Agent]
-    N --> O[요구사항 / 영향도 / Git diff / 테스트 결과 검토]
-    O --> P{검토 결과}
+    I -->|아니오| J["분석 수정 또는 종료"]
+    I -->|예| K["Main Agent 코드 수정"]
 
-    P -- CHANGES_REQUIRED --> J
-    P -- REVIEW_PASS ---> Q[report]
-    Q --> R[최종 변경 보고서 생성]
+    K --> L["Tester Agent"]
+    L --> M["기존 테스트 실행 및 필요 시 테스트 추가"]
+    M --> N["test-result.md 작성"]
+
+    N --> O["Reviewer Agent"]
+    O --> P["요구사항 / 영향도 / Git diff / 테스트 결과 검토"]
+
+    P --> Q{"검토 결과"}
+
+    Q -->|CHANGES_REQUIRED| K
+    Q -->|REVIEW_PASS| R["/report"]
+
+    R --> S["최종 변경 보고서 생성"]
 ```
 
 ## 디렉터리 구조
@@ -273,3 +281,7 @@ Reviewer가 수정 필요 사항을 발견하면 Main Agent로 돌아가 재수�
 - Agent별 `model` 값은 Cursor에서 실제 사용 가능한 모델 ID에 따라 조정이 필요할 수 있습니다.
 - External Researcher의 MCP 사용 여부는 현재 Cursor 환경에 연결된 MCP에 따라 달라집니다.
 - 테스트 실행 가능 여부는 프로젝트의 빌드 환경과 외부 의존성 상태에 영향을 받습니다.
+  
+## License
+
+This project is licensed under the [MIT License](LICENSE).
